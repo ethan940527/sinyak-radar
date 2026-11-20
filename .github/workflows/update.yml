@@ -1,0 +1,60 @@
+name: 신약 레이더 갱신
+
+on:
+  schedule:
+    - cron: "0 20 * * 0"   # 매주 월요일 새벽 5시(한국 시간)
+  workflow_dispatch:        # Actions 화면에서 직접 실행할 수도 있어요
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 한 번 받은 식약처 상세 정보를 다음 주에도 다시 쓰도록 보관해요
+      - uses: actions/cache@v4
+        with:
+          path: data/kr-detail-cache.json
+          key: kr-detail-${{ github.run_id }}
+          restore-keys: kr-detail-
+
+      - name: 데이터 수집
+        env:
+          DATA_KEY: ${{ secrets.DATA_KEY }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: node collect.mjs
+
+      - name: 사이트 파일 모으기
+        run: |
+          mkdir -p _site/data
+          cp index.html _site/
+          cp data/radar-data.js _site/data/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
