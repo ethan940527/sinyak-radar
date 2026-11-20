@@ -52,9 +52,14 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--ind); outline-offse
 .chip{border:0; background:var(--chip); color:var(--ink); font:inherit; font-size:13px; padding:6px 12px; border-radius:999px; white-space:nowrap; cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--chip-on); color:var(--chip-on-ink); font-weight:600}
 
-.sec{margin:20px 0 0}
-.sec h2{font-size:16px; margin:0; font-weight:700}
-.sec .sec-desc{font-size:12.5px; color:var(--muted); margin:2px 0 10px}
+.sec{margin:18px 0 0; background:var(--soft); border-radius:20px; padding:14px 12px 4px; border-top:5px solid var(--sec, var(--muted))}
+.sec.k-new{--sec:var(--new)} .sec.k-gen{--sec:var(--gen)} .sec.k-trial{--sec:var(--ind)}
+.sec.k-trend{--sec:var(--muted)} .sec.k-us{--sec:var(--us)} .sec.k-eu{--sec:var(--etc)}
+.sec-head{display:flex; align-items:center; gap:8px; padding:0 4px}
+.sec h2{font-size:17px; margin:0; font-weight:700; color:var(--sec)}
+.sec-count{font-size:12px; font-weight:700; color:#fff; background:var(--sec); border-radius:999px; padding:1px 9px}
+.sec .sec-desc{font-size:12.5px; color:var(--muted); margin:3px 4px 12px}
+.sec-list .card:last-child, .sec-list .trend:last-child{margin-bottom:10px}
 
 .card{background:var(--surface); border:1px solid var(--line); border-radius:16px; margin-bottom:12px; padding:16px}
 .card-top{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
@@ -63,6 +68,10 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--ind); outline-offse
 .cat{font-size:12px; border:1px solid var(--line); border-radius:999px; padding:1px 9px; white-space:nowrap; color:var(--muted)}
 .badges{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
 .badge{font-size:12px; font-weight:700; border-radius:6px; padding:1px 8px; color:#fff}
+.badge{font-size:12.5px; padding:2px 9px}
+.badge.gen{background:var(--gen); font-size:13px; padding:2px 10px}
+.ribbon{margin:-16px -16px 12px; padding:8px 16px; font-size:13px; font-weight:700; border-radius:16px 16px 0 0; display:flex; align-items:center; gap:6px}
+.ribbon.gen{background:var(--gen); color:#fff}
 .badge.new{background:var(--new)} .badge.ind{background:var(--ind)} .badge.gen{background:var(--gen)}
 .badge.us{background:var(--us)} .badge.recent{background:transparent; color:var(--alert); border:1px solid var(--alert)}
 .stages{display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:12px}
@@ -82,11 +91,16 @@ dl{margin:0}
 .kr-line{margin-top:12px; padding:9px 12px; border-radius:10px; background:var(--bg); font-size:14px}
 .kr-line.none b{color:var(--alert)}
 .en{font-size:13.5px; line-height:1.55}
+.card-body{padding-top:4px}
+.source{margin:12px 0 0; font-size:12px; color:var(--muted)}
 .more{border:0; background:none; font:inherit; font-size:13px; font-weight:600; color:var(--ind); padding:4px 0 0; cursor:pointer}
 .link{display:inline-block; margin-top:12px; font-size:13px; font-weight:600; color:var(--ind); text-decoration:none}
 .trend{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:8px; display:flex; justify-content:space-between; gap:10px; font-size:14px}
 .trend span{color:var(--muted); font-size:13px; white-space:nowrap}
 .empty{background:var(--surface); border:1px dashed var(--line); border-radius:16px; padding:22px 16px; color:var(--muted); font-size:14px; text-align:center; margin-top:16px}
+.toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); background:var(--ink); color:var(--surface); font-size:13px; line-height:1.5; padding:10px 14px; border-radius:10px; width:max-content; max-width:88vw; text-align:center; opacity:0; pointer-events:none; transition:opacity .2s; z-index:20}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
 footer{margin-top:26px; font-size:12px; color:var(--muted); line-height:1.7}
 footer p{margin:0 0 8px}
 </style>
@@ -115,6 +129,8 @@ footer p{margin:0 0 8px}
 <script src="data/radar-data.js"></script>
 <script>
 const D = window.RADAR_DATA;
+
+
 const REGIONS = {
   kr:{label:"국내", desc:"식약처 허가 기준이에요. 허가가 나도 출시까지는 시간이 걸릴 수 있어요."},
   us:{label:"미국", desc:"FDA 승인 기준이에요. 국내에 아직 없는 약이 선점 신호예요."},
@@ -137,23 +153,6 @@ function daysAgo(d){
   const t = Date.UTC(+d.slice(0,4), +d.slice(4,6)-1, +d.slice(6,8));
   return Math.round((g.getTime() - t) / 86400000);
 }
-// 긴 글은 앞부분만 보여주고 펼치기·접기 버튼을 붙여요
-let foldId = 0;
-function foldText(text, limit, cls = ""){
-  const t = String(text ?? "");
-  if (t.length <= limit) return `<span class="${cls}">${esc(t)}</span>`;
-  const id = "fold" + (++foldId);
-  return `<span class="${cls}" id="${id}" data-full="${esc(t)}" data-short="${esc(t.slice(0, limit))}…">${esc(t.slice(0, limit))}…</span><br><button class="more" type="button" aria-expanded="false" aria-controls="${id}" data-fold="${id}">펼치기</button>`;
-}
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-fold]");
-  if (!b) return;
-  const span = document.getElementById(b.dataset.fold);
-  const open = b.getAttribute("aria-expanded") !== "true";
-  span.textContent = open ? span.dataset.full : span.dataset.short;
-  b.setAttribute("aria-expanded", String(open));
-  b.textContent = open ? "접기" : "펼치기";
-});
 const recentBadge = d => daysAgo(d) <= 60 ? '<span class="badge recent">최근 60일</span>' : "";
 
 // 단계: 0 임상 3상 진행, 1 3상 완료, 2 심사 중, 3 허가·승인, 4 출시
@@ -163,10 +162,6 @@ function stageStrip(now, approvedLabel, reviewLabel = "심사 중"){
   return `<div class="stages" aria-label="현재 단계: ${names[now]}">${names.map((n,i) =>
     `<div class="${i < now ? "done" : i === now ? "now" : ""}"><i></i>${n}</div>`).join("")}</div>`;
 }
-function newsRow(label, a){
-  return a ? `<div class="row"><dt>${label}</dt><dd><a class="news" href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.title)}</a> <small>${fmt(a.date)}</small></dd></div>` : "";
-}
-
 function el(tag, attrs={}, html=""){
   const n = document.createElement(tag);
   for (const [k,v] of Object.entries(attrs)) n.setAttribute(k,v);
@@ -204,129 +199,148 @@ function renderFilters(){
   });
 }
 
-function krNewCard(x){
-  const type = x.newdrug === "신약" ? ["new","신약"] : x.new_indication ? ["ind","새 적응증"] : ["new","국내 첫 등장"];
-  const followers = (x.followers || []).map(f => { const [co, d] = [f.replace(/\s\d{8}$/, ""), (f.match(/\d{8}$/)||[""])[0]]; return `${esc(company(co))} ${fmt(d)}`; });
+function cardShell({top, summary = "", body, label, source, ribbon = ""}){
   return `<article class="card">
-    <div class="card-top">
-      <div><div class="name">${esc(shortName(x.name))}</div><div class="sub">${esc(company(x.company))}, ${fmt(x.permit_date)} 허가</div></div>
-      <span class="cat">${esc(x.categories.join(", "))}</span>
+    ${ribbon}
+    ${top}
+    ${summary}
+    <div class="card-body">
+      ${body}
+      <p class="source">출처: ${source}</p>
     </div>
-    <div class="badges"><span class="badge ${type[0]}">${type[1]}</span>${recentBadge(x.permit_date)}</div>
-    ${stageStrip(x.news_kr_launch ? 4 : 3, "국내 허가", "심사")}
-    <dl>
-      ${x.ee ? `<div class="row"><dt>효능효과</dt><dd>${foldText(x.ee, 120)}</dd></div>` : ""}
-      ${x.ingr ? `<div class="row"><dt>성분</dt><dd>${esc(x.ingr)}</dd></div>` : ""}
-      ${x.strengths && x.strengths.length > 1 ? `<div class="row"><dt>제품</dt><dd>용량 ${x.strengths.length}종</dd></div>` : ""}
-      ${followers.length ? `<div class="row"><dt>뒤따라 허가</dt><dd>${followers.join(", ")}</dd></div>` : ""}
-      ${newsRow("출시 보도", x.news_kr_launch)}
-    </dl>
-    <a class="link" href="https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(x.item_seq)}" target="_blank" rel="noopener">의약품안전나라에서 허가 정보 보기</a>
   </article>`;
+}
+function topHTML(name, sub, cats){
+  return `<div class="card-top">
+      <div><div class="name">${esc(name)}</div><div class="sub">${sub}</div></div>
+      <span class="cat">${esc(cats.join(", "))}</span>
+    </div>`;
+}
+// 원문이 너무 길면 카드가 길어지지 않게 앞부분만 보여줘요
+function clip(text, n){
+  const t = String(text ?? "");
+  return t.length > n ? esc(t.slice(0, n).trim()) + "…" : esc(t);
+}
+function row(label, value, cls = ""){
+  return value ? `<div class="row"><dt>${label}</dt><dd class="${cls}">${value}</dd></div>` : "";
+}
+function newsRow(label, a){
+  return a ? row(label, `${esc(a.title)} <small>${fmt(a.date)} 보도</small>`) : "";
+}
+const krLineHTML = (status, first) => ({
+  none: ["none", "국내: <b>미허가</b>"],
+  parts: ["", "국내: 단일 성분은 허가, <b>복합제는 미허가</b>"],
+  same: ["", `국내: 동일 성분 허가 있음 (최초 허가 ${fmt(first)})`],
+  unknown: ["", "국내: 확인하지 못했어요"]
+})[status || "unknown"];
+
+function krNewCard(x){
+  const type = x.newdrug === "신약" ? ["new","신약"] : x.new_indication ? ["ind","신규 적응증"] : ["new","국내 첫 허가"];
+  const followers = (x.followers || []).map(f => `${esc(company(f.replace(/\s\d{8}$/, "")))} ${fmt((f.match(/\d{8}$/)||[""])[0])}`);
+  return cardShell({
+    top: topHTML(shortName(x.name), `${esc(company(x.company))}, ${fmt(x.permit_date)} 허가`, x.categories)
+      + `<div class="badges"><span class="badge ${type[0]}">${type[1]}</span>${recentBadge(x.permit_date)}</div>`
+      + stageStrip(x.news_kr_launch ? 4 : 3, "국내 허가", "심사"),
+    label: "허가 정보 보기",
+    body: `<dl>
+      ${row("제품명", esc(x.name))}
+      ${row("성분", esc(x.ingr))}
+      ${row("효능효과", clip(x.ee, 160))}
+      ${x.strengths && x.strengths.length > 1 ? row("제품", `용량 ${x.strengths.length}종`) : ""}
+      ${followers.length ? row("후속 허가", followers.join(", ")) : ""}
+      ${newsRow("출시 보도", x.news_kr_launch)}
+    </dl>`,
+    source: "식약처 의약품 제품 허가정보" + (x.news_kr_launch ? ", 언론 보도" : "")
+  });
 }
 
 function krGenCard(g){
   const first = g.entrants[0] || {};
-  return `<article class="card">
-    <div class="card-top">
-      <div><div class="name">${esc(shortName(first.name || g.ingredient))}</div><div class="sub">성분 ${esc(g.ingredient)}, 오리지널 ${esc(company(g.originator))}</div></div>
-      <span class="cat">${esc(g.categories.join(", "))}</span>
-    </div>
-    <div class="badges"><span class="badge gen">첫 제네릭</span>${recentBadge(g.first_date)}</div>
-    <p class="row">그동안 ${esc(company(g.originator))}만 갖고 있던 성분에 처음으로 다른 회사가 들어왔어요. 약값이 내려갈 수 있다는 신호예요.</p>
-    <dl><div class="row"><dt>들어온 회사</dt><dd>${g.entrants.map(e => `${esc(company(e.company))} ${fmt(e.date)}`).join(", ")}</dd></div></dl>
-  </article>`;
+  return cardShell({
+    ribbon: `<div class="ribbon gen">퍼스트 제네릭</div>`,
+    top: topHTML(shortName(first.name || g.ingredient), `성분 ${esc(g.ingredient)}, 오리지널 ${esc(company(g.originator))}`, g.categories)
+      + `<div class="badges"><span class="badge gen">퍼스트 제네릭</span>${recentBadge(g.first_date)}</div>`,
+    summary: `<p class="row">오리지널(${esc(company(g.originator))})만 있던 성분에 처음으로 제네릭이 허가됐어요. 약가 인하로 이어질 수 있는 신호예요.</p>`,
+    label: "허가 정보 보기",
+    body: `<dl>${row("허가받은 회사", g.entrants.map(e => `${esc(company(e.company))} ${fmt(e.date)}`).join(", "))}
+      ${row("제품명", g.entrants.map(e => esc(e.name)).join(", "))}</dl>`,
+    source: "식약처 의약품 제품 허가정보"
+  });
 }
 
 function usCard(x){
-  const num = String(x.application).replace(/\D/g, "");
-  const kr = {
-    none: ['none', '국내: <b>허가 없음</b>'],
-    parts: ['', '국내: 각 성분은 있지만 <b>이 조합은 허가 없음</b>'],
-    same: ['', `국내: 같은 성분은 허가돼 있어요 (첫 허가 ${fmt(x.kr_first)}). 제형이나 적응증이 다를 수 있어요.`],
-    unknown: ['', '국내: 확인하지 못했어요']
-  }[x.kr_status || "unknown"];
-  return `<article class="card">
-    <div class="card-top">
-      <div><div class="name">${esc(titleCase(x.brand))}</div><div class="sub">${esc(titleCase(x.sponsor))}, ${fmt(x.approval_date)} FDA 승인</div></div>
-      <span class="cat">${esc(x.categories.join(", "))}</span>
-    </div>
-    <div class="badges"><span class="badge us">FDA 승인</span>${recentBadge(x.approval_date)}</div>
-    ${stageStrip(3, "FDA 승인", "FDA 심사")}
-    <dl>
-      <div class="row"><dt>성분</dt><dd>${esc(titleCase(x.ingredients))}</dd></div>
-      ${x.indication ? `<div class="row"><dt>적응증 (FDA 허가 문서 원문)</dt><dd>${foldText(x.indication, 200, "en")}</dd></div>` : ""}
-    </dl>
-    <div class="kr-line ${kr[0]}">${kr[1]}${x.news_kr_review ? `<br>보도 기준 국내 허가 신청: <a class="news" href="${esc(x.news_kr_review.link)}" target="_blank" rel="noopener">${esc(x.news_kr_review.title)}</a> <small>${fmt(x.news_kr_review.date)}</small>` : ""}</div>
-    <a class="link" href="https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&ApplNo=${num}" target="_blank" rel="noopener">FDA 승인 정보 보기</a>
-  </article>`;
+  const kr = krLineHTML(x.kr_status, x.kr_first);
+  return cardShell({
+    top: topHTML(titleCase(x.brand), `${esc(titleCase(x.sponsor))}, ${fmt(x.approval_date)} FDA 승인`, x.categories)
+      + `<div class="badges"><span class="badge us">FDA 승인</span>${recentBadge(x.approval_date)}</div>`
+      + stageStrip(3, "FDA 승인", "FDA 심사"),
+    summary: `<div class="kr-line ${kr[0]}">${kr[1]}</div>`,
+    label: "승인 정보 보기",
+    body: `<dl>
+      ${row("성분", esc(titleCase(x.ingredients)))}
+      ${row("적응증 (FDA 라벨 원문)", clip(x.indication, 220), "en")}
+      ${newsRow("국내 허가 신청 보도", x.news_kr_review)}
+    </dl>`,
+    source: `미국 FDA 승인 정보 (${esc(x.application)})` + (x.news_kr_review ? ", 언론 보도" : "")
+  });
 }
 
 function trialCard(t){
   const now = t.news_us_review ? 2 : t.stage === "phase3_active" ? 0 : 1;
-  const first = (t.trials || [])[0] || {};
-  const krLine = t.kr_status === "same"
-    ? `국내: 같은 성분은 허가돼 있어요 (첫 허가 ${fmt(t.kr_first)})`
-    : t.kr_status === "none" ? "국내: <b>허가 없음</b>" : "국내: 확인하지 못했어요";
+  const kr = krLineHTML(t.kr_status, t.kr_first);
   const doneTxt = t.last_done ? t.last_done.replace(/-/g, ".") : "";
-  return `<article class="card">
-    <div class="card-top">
-      <div><div class="name">${esc(t.name)}</div><div class="sub">${esc(t.sponsors.map(titleCase).join(", "))}</div></div>
-      <span class="cat">${esc(t.categories.join(", "))}</span>
-    </div>
-    <div class="badges"><span class="badge trial">${now === 0 ? "임상 3상 진행 중" : now === 1 ? "임상 3상 완료" : "FDA 심사 중 (보도)"}</span></div>
-    ${stageStrip(now, "FDA 승인", "FDA 심사")}
-    <dl>
-      <div class="row"><dt>대상 질환 (원문)</dt><dd class="en">${esc(t.conditions.join(", "))}</dd></div>
-      <div class="row"><dt>3상 시험</dt><dd>${t.trial_count}건${doneTxt ? `, ${t.stage === "phase3_active" ? "예정 종료" : "마지막 종료"} ${esc(doneTxt)}` : ""}</dd></div>
+  return cardShell({
+    top: topHTML(t.name, esc(t.sponsors.map(titleCase).join(", ")), t.categories)
+      + `<div class="badges"><span class="badge trial">${now === 0 ? "임상 3상 진행 중" : now === 1 ? "임상 3상 완료" : "FDA 심사 중 (보도)"}</span></div>`
+      + stageStrip(now, "FDA 승인", "FDA 심사"),
+    summary: `<div class="kr-line ${kr[0]}">${kr[1]}</div>`,
+    label: "임상 정보 보기",
+    body: `<dl>
+      ${row("대상 질환 (원문)", esc(t.conditions.join(", ")), "en")}
+      ${row("3상 시험", `${t.trial_count}건${doneTxt ? `, ${t.stage === "phase3_active" ? "종료 예정" : "최근 종료"} ${esc(doneTxt)}` : ""}`)}
+      ${row("시험 제목 (원문)", clip((t.trials || [])[0]?.title, 140), "en")}
       ${newsRow("FDA 허가 신청 보도", t.news_us_review)}
-    </dl>
-    <div class="kr-line ${t.kr_status === "none" ? "none" : ""}">${krLine}</div>
-    ${first.id ? `<a class="link" href="https://clinicaltrials.gov/study/${encodeURIComponent(first.id)}" target="_blank" rel="noopener">임상시험 정보 보기</a>` : ""}
-  </article>`;
+    </dl>`,
+    source: "ClinicalTrials.gov" + ((t.trials || [])[0]?.id ? ` (${esc(t.trials[0].id)})` : "") + (t.news_us_review ? ", 언론 보도" : "")
+  });
 }
 
 function krTrialCard(t){
   const first = (t.trials || [])[0] || {};
-  return `<article class="card">
-    <div class="card-top">
-      <div><div class="name">${esc(t.name)}</div><div class="sub">${esc(t.sponsors.map(company).join(", "))}</div></div>
-      <span class="cat">${esc(t.categories.join(", "))}</span>
-    </div>
-    <div class="badges"><span class="badge trial">국내 임상 3상</span>${t.latest ? recentBadge(t.latest) : ""}</div>
-    ${stageStrip(0, "국내 허가", "심사")}
-    <dl>
-      ${t.ingr && t.ingr !== t.name ? `<div class="row"><dt>성분</dt><dd>${esc(t.ingr)}</dd></div>` : ""}
-      ${first.disease ? `<div class="row"><dt>대상 질환</dt><dd>${esc(first.disease)}</dd></div>` : ""}
-      ${first.title ? `<div class="row"><dt>시험 제목</dt><dd>${foldText(first.title, 80)}</dd></div>` : ""}
-      <div class="row"><dt>3상 시험</dt><dd>${t.trial_count}건${t.latest ? `, 최근 승인 ${fmt(t.latest)}` : ""}</dd></div>
-    </dl>
-  </article>`;
+  return cardShell({
+    top: topHTML(t.name, esc(t.sponsors.map(company).join(", ")), t.categories)
+      + `<div class="badges"><span class="badge trial">국내 임상 3상</span>${t.latest ? recentBadge(t.latest) : ""}</div>`
+      + stageStrip(0, "국내 허가", "심사"),
+    label: "임상 정보 보기",
+    body: `<dl>
+      ${t.ingr && t.ingr !== t.name ? row("성분", esc(t.ingr)) : ""}
+      ${row("대상 질환", esc(first.disease))}
+      ${row("시험 제목", clip(first.title, 140))}
+      ${row("3상 시험", `${t.trial_count}건${t.latest ? `, 최근 승인 ${fmt(t.latest)}` : ""}`)}
+    </dl>`,
+    source: "식약처 의약품 임상시험 계획 정보"
+  });
 }
 
 function euCard(e){
   const now = e.stage === "approved" ? 3 : 2;
-  const kr = { none: ["none", "국내: <b>허가 없음</b>"], parts: ["", "국내: 각 성분은 있지만 <b>이 조합은 허가 없음</b>"],
-    same: ["", `국내: 같은 성분은 허가돼 있어요 (첫 허가 ${fmt(e.kr_first)})`], unknown: ["", "국내: 확인하지 못했어요"] }[e.kr_status || "unknown"];
-  return `<article class="card">
-    <div class="card-top">
-      <div><div class="name">${esc(e.name)}</div><div class="sub">${esc(e.holder)}, ${fmt(e.date)} ${e.stage === "approved" ? "EU 승인" : "CHMP 긍정 의견"}</div></div>
-      <span class="cat">${esc(e.categories.join(", "))}</span>
-    </div>
-    <div class="badges"><span class="badge eu">${e.stage === "approved" ? "EU 승인" : "EU 승인 권고"}</span>${e.biosimilar ? '<span class="badge gen">바이오시밀러</span>' : ""}${recentBadge(e.date)}</div>
-    ${stageStrip(now, "EU 승인", "긍정 의견")}
-    <dl>
-      <div class="row"><dt>성분</dt><dd>${esc(e.inn)}</dd></div>
-      ${e.indication ? `<div class="row"><dt>적응증 (EMA 원문)</dt><dd>${foldText(e.indication, 200, "en")}</dd></div>` : ""}
-    </dl>
-    <div class="kr-line">${e.us_approved === null ? "미국: 백신은 FDA 승인 여부를 자동으로 확인하지 못해요" : "미국: <b>FDA 승인 없음</b>"}</div>
-    <div class="kr-line ${kr[0]}">${kr[1]}</div>
-    ${e.url ? `<a class="link" href="${esc(e.url)}" target="_blank" rel="noopener">EMA 정보 보기</a>` : ""}
-  </article>`;
+  const kr = krLineHTML(e.kr_status, e.kr_first);
+  return cardShell({
+    top: topHTML(e.name, `${esc(e.holder)}, ${fmt(e.date)} ${e.stage === "approved" ? "EU 승인" : "CHMP 긍정 의견"}`, e.categories)
+      + `<div class="badges"><span class="badge eu">${e.stage === "approved" ? "EU 승인" : "EU 승인 권고"}</span>${e.biosimilar ? '<span class="badge gen">바이오시밀러</span>' : ""}${recentBadge(e.date)}</div>`
+      + stageStrip(now, "EU 승인", "긍정 의견"),
+    summary: `<div class="kr-line">${e.us_approved === null ? "미국: 백신은 FDA 승인 여부를 자동으로 확인하지 못해요" : "미국: <b>FDA 승인 없음</b>"}</div><div class="kr-line ${kr[0]}">${kr[1]}</div>`,
+    label: "승인 정보 보기",
+    body: `<dl>
+      ${row("성분", esc(e.inn))}
+      ${row("적응증 (EMA 원문)", clip(e.indication, 220), "en")}
+    </dl>`,
+    source: "유럽 EMA 의약품 정보"
+  });
 }
 
-function section(title, desc, html){
-  return `<section class="sec"><h2>${title}</h2><p class="sec-desc">${desc}</p>${html}</section>`;
+function section(title, desc, html, kind = "", count = 0){
+  return `<section class="sec ${kind}"><div class="sec-head"><h2>${title}</h2>${count ? `<span class="sec-count">${count}</span>` : ""}</div><p class="sec-desc">${desc}</p><div class="sec-list">${html}</div></section>`;
 }
 
 function renderList(){
@@ -336,20 +350,20 @@ function renderList(){
     const news = D.kr.new.filter(inCat);
     const gens = D.kr.first_generic.filter(inCat);
     const trend = D.kr.generic_trend.filter(t => t.companies >= 2).filter(inCat);
-    if (news.length) html += section("신약·새 적응증", "국내에 처음 나온 약이나, 처음 붙은 적응증이에요.", news.map(krNewCard).join(""));
-    if (gens.length) html += section("첫 제네릭", "오리지널만 있던 성분에 다른 회사가 처음 들어왔어요.", gens.map(krGenCard).join(""));
+    if (news.length) html += section("신약·신규 적응증", "국내에 처음 허가된 성분이거나, 기존 성분에 새로 추가된 적응증이에요.", news.map(krNewCard).join(""), "k-new", news.length);
+    if (gens.length) html += section("퍼스트 제네릭", "오리지널만 있던 성분에 처음 허가된 제네릭이에요.", gens.map(krGenCard).join(""), "k-gen", gens.length);
     const krt = (D.kr.trials || []).filter(inCat);
-    if (krt.length) html += section("국내 임상 3상", "최근 2년 안에 식약처가 승인한 3상 임상시험이에요.", krt.map(krTrialCard).join(""));
-    if (trend.length) html += section("복제약이 몰리는 성분", "최근 1년 동안 여러 회사가 허가받은 성분이에요.",
-      trend.map(t => `<div class="trend"><div>${esc(t.ingredient)} <small>(${esc(t.categories.join(", "))})</small></div><span>${t.companies}개 회사, 최근 ${fmt(t.latest)}</span></div>`).join(""));
+    if (krt.length) html += section("국내 임상 3상", "최근 2년 안에 식약처가 승인한 3상 임상시험이에요.", krt.map(krTrialCard).join(""), "k-trial", krt.length);
+    if (trend.length) html += section("제네릭 허가가 몰리는 성분", "최근 1년 동안 여러 회사가 제네릭 허가를 받은 성분이에요.",
+      trend.map(t => `<div class="trend"><div>${esc(t.ingredient)} <small>(${esc(t.categories.join(", "))})</small></div><span>${t.companies}개 회사, 최근 ${fmt(t.latest)}</span></div>`).join(""), "k-trend", trend.length);
   } else if (region === "etc"){
     const eu = (D.eu || []).filter(inCat);
-    if (eu.length) html += section("유럽 먼저", "유럽에서 승인됐거나 승인 권고를 받았지만, 미국에서는 아직 승인되지 않은 약이에요.", eu.map(euCard).join(""));
+    if (eu.length) html += section("유럽 먼저", "유럽에서 승인됐거나 승인 권고를 받았지만, 미국에서는 아직 승인되지 않은 약이에요.", eu.map(euCard).join(""), "k-eu", eu.length);
   } else if (region === "us"){
     const us = D.us.filter(inCat);
     const tr = D.us_trials.filter(inCat);
-    if (us.length) html += section("FDA 승인", "최근 1년 안에 미국에서 승인된 약이에요.", us.map(usCard).join(""));
-    if (tr.length) html += section("임상 3상", "미국에서 임상 3상 중이거나 최근 2년 안에 3상을 마친, 아직 승인 전인 약이에요.", tr.map(trialCard).join(""));
+    if (us.length) html += section("FDA 승인", "최근 1년 안에 미국에서 승인된 약이에요.", us.map(usCard).join(""), "k-us", us.length);
+    if (tr.length) html += section("임상 3상", "미국에서 임상 3상 중이거나 최근 2년 안에 3상을 마친, 아직 승인 전인 약이에요.", tr.map(trialCard).join(""), "k-trial", tr.length);
   }
   if (!html){
     html = `<div class="empty">${region === "etc"
