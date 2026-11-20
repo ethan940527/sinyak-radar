@@ -746,13 +746,17 @@ async function addNews(idSecret, krNew, usHit, trials) {
 // ---------- 실행 ----------
 async function main() {
   await mkdir(dataDir, { recursive: true });
-  let key = "";
-  try { key = (await readFile(path.join(here, "key.txt"), "utf8")).trim(); } catch { /* 아래에서 안내 */ }
-  let naver = null;
-  try {
-    const lines = (await readFile(path.join(here, "naver.txt"), "utf8")).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-    if (lines.length >= 2 && !lines.some(l => l.includes("붙여넣"))) naver = lines.slice(0, 2);
-  } catch { /* 없으면 뉴스는 건너뜀 */ }
+  // 키는 GitHub에서 돌 때는 Secrets(환경변수)에서, 내 컴퓨터에서는 key.txt·naver.txt에서 읽어요
+  let key = (process.env.DATA_KEY ?? "").trim();
+  if (!key) { try { key = (await readFile(path.join(here, "key.txt"), "utf8")).trim(); } catch { /* 아래에서 안내 */ } }
+  let naver = process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET
+    ? [process.env.NAVER_CLIENT_ID.trim(), process.env.NAVER_CLIENT_SECRET.trim()] : null;
+  if (!naver) {
+    try {
+      const lines = (await readFile(path.join(here, "naver.txt"), "utf8")).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      if (lines.length >= 2 && !lines.some(l => l.includes("붙여넣"))) naver = lines.slice(0, 2);
+    } catch { /* 없으면 뉴스는 건너뜀 */ }
+  }
 
   const step = async (label, fn, fallback) => { try { return await fn(); } catch (e) { log(`${label} 중단: ${e.message}`); return fallback; } };
 
