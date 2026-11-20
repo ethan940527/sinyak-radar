@@ -216,11 +216,23 @@ function topHTML(name, sub, cats){
       <span class="cat">${esc(cats.join(", "))}</span>
     </div>`;
 }
-// 원문이 너무 길면 카드가 길어지지 않게 앞부분만 보여줘요
+// 원문이 길면 앞부분만 보여주고, "더보기"를 누르면 그 자리에서 전체가 펼쳐져요
+let clipId = 0;
 function clip(text, n){
   const t = String(text ?? "");
-  return t.length > n ? esc(t.slice(0, n).trim()) + "…" : esc(t);
+  if (t.length <= n) return esc(t);
+  const id = "clip" + (++clipId);
+  return `<span id="${id}" data-full="${esc(t)}" data-short="${esc(t.slice(0, n).trim())}…">${esc(t.slice(0, n).trim())}…</span> <button class="more" type="button" aria-expanded="false" aria-controls="${id}" data-clip="${id}">더보기</button>`;
 }
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-clip]");
+  if (!b) return;
+  const span = document.getElementById(b.dataset.clip);
+  const open = b.getAttribute("aria-expanded") !== "true";
+  span.textContent = open ? span.dataset.full : span.dataset.short;
+  b.setAttribute("aria-expanded", String(open));
+  b.textContent = open ? "접기" : "더보기";
+});
 function row(label, value, cls = ""){
   return value ? `<div class="row"><dt>${label}</dt><dd class="${cls}">${value}</dd></div>` : "";
 }
