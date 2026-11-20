@@ -1,0 +1,50 @@
+name: 화면만 다시 올리기
+
+on:
+  push:
+    paths:
+      - index.html   # index.html을 올리면 데이터 수집 없이 화면만 1~2분 안에 바뀌어요
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 지난번 수집 때 보관한 데이터를 꺼내요
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/radar-data.js
+          key: radar-data-${{ github.run_id }}
+          restore-keys: radar-data-
+          fail-on-cache-miss: true
+
+      - name: 사이트 파일 모으기
+        run: |
+          mkdir -p _site/data
+          cp index.html _site/
+          cp data/radar-data.js _site/data/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
