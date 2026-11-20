@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>신약 레이더</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --ink:#13302C; --muted:#5D716D; --line:#D3DCDA; --soft:#E5ECEA;
+  --new:#0F7B5F; --ind:#1B5FD1; --gen:#B8730A; --us:#7A4DB3; --kr:#0F7B5F; --etc:#8A5A2B; --alert:#C2410C;
+  --chip:#E1E8E6; --chip-on:#13302C; --chip-on-ink:#FFFFFF;
+  color-scheme: light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A18; --surface:#172522; --ink:#E4EFEC; --muted:#9DB2AD; --line:#2A3B37; --soft:#1C2C29;
+    --new:#3CC59B; --ind:#6FA0F5; --gen:#E8A93A; --us:#B591E6; --kr:#3CC59B; --etc:#D9A06A; --alert:#FB923C;
+    --chip:#1F302C; --chip-on:#E4EFEC; --chip-on-ink:#0F1A18; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A18; --surface:#172522; --ink:#E4EFEC; --muted:#9DB2AD; --line:#2A3B37; --soft:#1C2C29;
+  --new:#3CC59B; --ind:#6FA0F5; --gen:#E8A93A; --us:#B591E6; --kr:#3CC59B; --etc:#D9A06A; --alert:#FB923C;
+  --chip:#1F302C; --chip-on:#E4EFEC; --chip-on-ink:#0F1A18; color-scheme: dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased}
+.wrap{max-width:560px; margin:0 auto; padding:24px 18px 40px}
+header h1{font-size:30px; line-height:1.15; margin:0 0 6px; font-weight:700; letter-spacing:-0.02em}
+header p{margin:0; color:var(--muted); font-size:14px}
+.updated{display:inline-block; margin-top:10px; font-size:12px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:2px 10px}
+button:focus-visible,a:focus-visible{outline:3px solid var(--ind); outline-offset:2px}
+
+.tabs{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:24px 0 0; background:var(--soft); padding:5px; border-radius:16px}
+.tab{border:0; font:inherit; cursor:pointer; background:none; color:var(--muted); border-radius:12px; padding:10px 4px 8px; text-align:center}
+.tab b{display:block; font-size:17px; font-weight:700; line-height:1.2}
+.tab small{font-size:12px}
+.tab[aria-selected="true"]{background:var(--surface); color:var(--ink); box-shadow:0 1px 0 var(--line)}
+.tab[aria-selected="true"][data-r="kr"] b{color:var(--kr)}
+.tab[aria-selected="true"][data-r="us"] b{color:var(--us)}
+.tab[aria-selected="true"][data-r="etc"] b{color:var(--etc)}
+.tab-desc{font-size:13px; color:var(--muted); margin:12px 2px 0}
+
+.filters{display:flex; gap:8px; overflow-x:auto; margin:14px 0 6px; padding-bottom:2px}
+.chip{border:0; background:var(--chip); color:var(--ink); font:inherit; font-size:13px; padding:6px 12px; border-radius:999px; white-space:nowrap; cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--chip-on); color:var(--chip-on-ink); font-weight:600}
+
+.sec{margin:20px 0 0}
+.sec h2{font-size:16px; margin:0; font-weight:700}
+.sec .sec-desc{font-size:12.5px; color:var(--muted); margin:2px 0 10px}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:16px; margin-bottom:12px; padding:16px}
+.card-top{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
+.name{font-size:19px; font-weight:700; line-height:1.3}
+.sub{font-size:13px; color:var(--muted)}
+.cat{font-size:12px; border:1px solid var(--line); border-radius:999px; padding:1px 9px; white-space:nowrap; color:var(--muted)}
+.badges{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
+.badge{font-size:12px; font-weight:700; border-radius:6px; padding:1px 8px; color:#fff}
+.badge.new{background:var(--new)} .badge.ind{background:var(--ind)} .badge.gen{background:var(--gen)}
+.badge.us{background:var(--us)} .badge.recent{background:transparent; color:var(--alert); border:1px solid var(--alert)}
+.stages{display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:12px}
+.stages div{text-align:center; font-size:11.5px; color:var(--muted); line-height:1.3; word-break:keep-all}
+.stages i{display:block; height:6px; border-radius:3px; background:var(--line); margin-bottom:4px}
+.stages .done i{background:var(--muted)}
+.stages .now i{background:var(--ind)}
+.stages .now{color:var(--ink); font-weight:700}
+.badge.trial{background:var(--ind)}
+.badge.eu{background:var(--etc)}
+.news{color:var(--ink)}
+.row small{color:var(--muted)}
+.row{margin-top:10px; font-size:14px}
+.row dt{font-size:12px; color:var(--muted)}
+.row dd{margin:0}
+dl{margin:0}
+.kr-line{margin-top:12px; padding:9px 12px; border-radius:10px; background:var(--bg); font-size:14px}
+.kr-line.none b{color:var(--alert)}
+.en{font-size:13.5px; line-height:1.55}
+.more{border:0; background:none; font:inherit; font-size:13px; font-weight:600; color:var(--ind); padding:4px 0 0; cursor:pointer}
+.link{display:inline-block; margin-top:12px; font-size:13px; font-weight:600; color:var(--ind); text-decoration:none}
+.trend{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:8px; display:flex; justify-content:space-between; gap:10px; font-size:14px}
+.trend span{color:var(--muted); font-size:13px; white-space:nowrap}
+.empty{background:var(--surface); border:1px dashed var(--line); border-radius:16px; padding:22px 16px; color:var(--muted); font-size:14px; text-align:center; margin-top:16px}
+footer{margin-top:26px; font-size:12px; color:var(--muted); line-height:1.7}
+footer p{margin:0 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>신약 레이더</h1>
+    <p>개원가 비급여 의약품의 신약과 신약 관련 정보를 정리했어요.</p>
+    <span class="updated" id="updated"></span>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="지역" id="tabs"></div>
+  <p class="tab-desc" id="tabDesc"></p>
+  <div class="filters" role="group" aria-label="진료 분야" id="filters"></div>
+  <main id="list" role="tabpanel" aria-live="polite"></main>
+
+  <footer>
+    <p>국내는 식약처 허가·임상시험 정보, 미국은 FDA 승인 정보와 ClinicalTrials.gov, 유럽은 EMA 정보를 바탕으로 매주 자동으로 정리해요. 허가·승인은 최근 1년, 임상시험은 최근 2년 안의 것만 보여줘요.</p>
+    <p>심사 중과 출시는 공식 공개 정보가 없어서, 언론 보도로 확인된 경우에만 기사 링크와 함께 표시해요.</p>
+    <p>효능효과와 적응증은 허가 문서 원문 일부예요. 처방 전에는 허가 문서 전체를 확인하세요.</p>
+    <p>전문의약품은 일반인 대상 광고가 금지돼 있어요. 병원 홍보는 약 이름보다 진료 프로그램과 상담 중심으로 준비하세요.</p>
+  </footer>
+</div>
+
+<script src="data/radar-data.js"></script>
+<script>
+const D = window.RADAR_DATA;
+const REGIONS = {
+  kr:{label:"국내", desc:"식약처 허가 기준이에요. 허가가 나도 출시까지는 시간이 걸릴 수 있어요."},
+  us:{label:"미국", desc:"FDA 승인 기준이에요. 국내에 아직 없는 약이 선점 신호예요."},
+  etc:{label:"기타", desc:"유럽(EMA) 기준이에요. 미국보다 먼저 승인된 약을 보여줘요."}
+};
+let CATS = ["전체","비만","탈모","안과"];
+let region = "kr";
+let cat = "전체";
+
+const fmt = d => d ? `${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6,8)}` : "";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+const shortName = n => String(n).replace(/\(.*$/, "").replace(/[\d.]+\s*(밀리그램|마이크로그램|그램|밀리리터|mg|%).*$/i, "").trim();
+const titleCase = s => String(s).toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+const company = s => String(s).replace(/\(주\)|주식회사|\(유\)/g, "").trim();
+const inCat = x => cat === "전체" || (x.categories || []).includes(cat);
+function daysAgo(d){
+  if (Array.isArray(D.categories)) CATS = ["전체", ...D.categories];
+  D.us_trials = D.us_trials || [];
+  const g = new Date(D.generated_at);
+  const t = Date.UTC(+d.slice(0,4), +d.slice(4,6)-1, +d.slice(6,8));
+  return Math.round((g.getTime() - t) / 86400000);
+}
+// 긴 글은 앞부분만 보여주고 펼치기·접기 버튼을 붙여요
+let foldId = 0;
+function foldText(text, limit, cls = ""){
+  const t = String(text ?? "");
+  if (t.length <= limit) return `<span class="${cls}">${esc(t)}</span>`;
+  const id = "fold" + (++foldId);
+  return `<span class="${cls}" id="${id}" data-full="${esc(t)}" data-short="${esc(t.slice(0, limit))}…">${esc(t.slice(0, limit))}…</span><br><button class="more" type="button" aria-expanded="false" aria-controls="${id}" data-fold="${id}">펼치기</button>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-fold]");
+  if (!b) return;
+  const span = document.getElementById(b.dataset.fold);
+  const open = b.getAttribute("aria-expanded") !== "true";
+  span.textContent = open ? span.dataset.full : span.dataset.short;
+  b.setAttribute("aria-expanded", String(open));
+  b.textContent = open ? "접기" : "펼치기";
+});
+const recentBadge = d => daysAgo(d) <= 60 ? '<span class="badge recent">최근 60일</span>' : "";
+
+// 단계: 0 임상 3상 진행, 1 3상 완료, 2 심사 중, 3 허가·승인, 4 출시
+// 심사 중과 출시는 공식 데이터가 없어 보도로 확인했을 때만 채워요
+function stageStrip(now, approvedLabel, reviewLabel = "심사 중"){
+  const names = ["임상 3상", "3상 완료", reviewLabel, approvedLabel, "출시"];
+  return `<div class="stages" aria-label="현재 단계: ${names[now]}">${names.map((n,i) =>
+    `<div class="${i < now ? "done" : i === now ? "now" : ""}"><i></i>${n}</div>`).join("")}</div>`;
+}
+function newsRow(label, a){
+  return a ? `<div class="row"><dt>${label}</dt><dd><a class="news" href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.title)}</a> <small>${fmt(a.date)}</small></dd></div>` : "";
+}
+
+function el(tag, attrs={}, html=""){
+  const n = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) n.setAttribute(k,v);
+  if (html) n.innerHTML = html;
+  return n;
+}
+
+function counts(){
+  return {
+    kr: D.kr.new.filter(inCat).length + D.kr.first_generic.filter(inCat).length + (D.kr.trials || []).filter(inCat).length,
+    us: D.us.filter(inCat).length + (D.us_trials || []).filter(inCat).length,
+    etc: (D.eu || []).filter(inCat).length
+  };
+}
+
+function renderTabs(){
+  const t = document.getElementById("tabs");
+  const c = counts();
+  t.innerHTML = "";
+  Object.entries(REGIONS).forEach(([k,r])=>{
+    const b = el("button",{class:"tab",type:"button",role:"tab","data-r":k,"aria-selected":String(k===region)},`<b>${r.label}</b><small>${c[k]}개</small>`);
+    b.addEventListener("click",()=>{ region=k; render(); });
+    t.appendChild(b);
+  });
+  document.getElementById("tabDesc").textContent = REGIONS[region].desc;
+}
+
+function renderFilters(){
+  const f = document.getElementById("filters");
+  f.innerHTML = "";
+  CATS.forEach(c=>{
+    const b = el("button",{class:"chip",type:"button","aria-pressed":String(c===cat)},c);
+    b.addEventListener("click",()=>{ cat=c; render(); });
+    f.appendChild(b);
+  });
+}
+
+function krNewCard(x){
+  const type = x.newdrug === "신약" ? ["new","신약"] : x.new_indication ? ["ind","새 적응증"] : ["new","국내 첫 등장"];
+  const followers = (x.followers || []).map(f => { const [co, d] = [f.replace(/\s\d{8}$/, ""), (f.match(/\d{8}$/)||[""])[0]]; return `${esc(company(co))} ${fmt(d)}`; });
+  return `<article class="card">
+    <div class="card-top">
+      <div><div class="name">${esc(shortName(x.name))}</div><div class="sub">${esc(company(x.company))}, ${fmt(x.permit_date)} 허가</div></div>
+      <span class="cat">${esc(x.categories.join(", "))}</span>
+    </div>
+    <div class="badges"><span class="badge ${type[0]}">${type[1]}</span>${recentBadge(x.permit_date)}</div>
+    ${stageStrip(x.news_kr_launch ? 4 : 3, "국내 허가", "심사")}
+    <dl>
+      ${x.ee ? `<div class="row"><dt>효능효과</dt><dd>${foldText(x.ee, 120)}</dd></div>` : ""}
+      ${x.ingr ? `<div class="row"><dt>성분</dt><dd>${esc(x.ingr)}</dd></div>` : ""}
+      ${x.strengths && x.strengths.length > 1 ? `<div class="row"><dt>제품</dt><dd>용량 ${x.strengths.length}종</dd></div>` : ""}
+      ${followers.length ? `<div class="row"><dt>뒤따라 허가</dt><dd>${followers.join(", ")}</dd></div>` : ""}
+      ${newsRow("출시 보도", x.news_kr_launch)}
+    </dl>
+    <a class="link" href="https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(x.item_seq)}" target="_blank" rel="noopener">의약품안전나라에서 허가 정보 보기</a>
+  </article>`;
+}
+
+function krGenCard(g){
+  const first = g.entrants[0] || {};
+  return `<article class="card">
+    <div class="card-top">
+      <div><div class="name">${esc(shortName(first.name || g.ingredient))}</div><div class="sub">성분 ${esc(g.ingredient)}, 오리지널 ${esc(company(g.originator))}</div></div>
+      <span class="cat">${esc(g.categories.join(", "))}</span>
+    </div>
+    <div class="badges"><span class="badge gen">첫 제네릭</span>${recentBadge(g.first_date)}</div>
+    <p class="row">그동안 ${esc(company(g.originator))}만 갖고 있던 성분에 처음으로 다른 회사가 들어왔어요. 약값이 내려갈 수 있다는 신호예요.</p>
+    <dl><div class="row"><dt>들어온 회사</dt><dd>${g.entrants.map(e => `${esc(company(e.company))} ${fmt(e.date)}`).join(", ")}</dd></div></dl>
+  </article>`;
+}
+
+function usCard(x){
+  const num = String(x.application).replace(/\D/g, "");
+  const kr = {
+    none: ['none', '국내: <b>허가 없음</b>'],
+    parts: ['', '국내: 각 성분은 있지만 <b>이 조합은 허가 없음</b>'],
+    same: ['', `국내: 같은 성분은 허가돼 있어요 (첫 허가 ${fmt(x.kr_first)}). 제형이나 적응증이 다를 수 있어요.`],
+    unknown: ['', '국내: 확인하지 못했어요']
+  }[x.kr_status || "unknown"];
+  return `<article class="card">
+    <div class="card-top">
+      <div><div class="name">${esc(titleCase(x.brand))}</div><div class="sub">${esc(titleCase(x.sponsor))}, ${fmt(x.approval_date)} FDA 승인</div></div>
+      <span class="cat">${esc(x.categories.join(", "))}</span>
+    </div>
+    <div class="badges"><span class="badge us">FDA 승인</span>${recentBadge(x.approval_date)}</div>
+    ${stageStrip(3, "FDA 승인", "FDA 심사")}
+    <dl>
+      <div class="row"><dt>성분</dt><dd>${esc(titleCase(x.ingredients))}</dd></div>
+      ${x.indication ? `<div class="row"><dt>적응증 (FDA 허가 문서 원문)</dt><dd>${foldText(x.indication, 200, "en")}</dd></div>` : ""}
+    </dl>
+    <div class="kr-line ${kr[0]}">${kr[1]}${x.news_kr_review ? `<br>보도 기준 국내 허가 신청: <a class="news" href="${esc(x.news_kr_review.link)}" target="_blank" rel="noopener">${esc(x.news_kr_review.title)}</a> <small>${fmt(x.news_kr_review.date)}</small>` : ""}</div>
+    <a class="link" href="https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&ApplNo=${num}" target="_blank" rel="noopener">FDA 승인 정보 보기</a>
+  </article>`;
+}
+
+function trialCard(t){
+  const now = t.news_us_review ? 2 : t.stage === "phase3_active" ? 0 : 1;
+  const first = (t.trials || [])[0] || {};
+  const krLine = t.kr_status === "same"
+    ? `국내: 같은 성분은 허가돼 있어요 (첫 허가 ${fmt(t.kr_first)})`
+    : t.kr_status === "none" ? "국내: <b>허가 없음</b>" : "국내: 확인하지 못했어요";
+  const doneTxt = t.last_done ? t.last_done.replace(/-/g, ".") : "";
+  return `<article class="card">
+    <div class="card-top">
+      <div><div class="name">${esc(t.name)}</div><div class="sub">${esc(t.sponsors.map(titleCase).join(", "))}</div></div>
+      <span class="cat">${esc(t.categories.join(", "))}</span>
+    </div>
+    <div class="badges"><span class="badge trial">${now === 0 ? "임상 3상 진행 중" : now === 1 ? "임상 3상 완료" : "FDA 심사 중 (보도)"}</span></div>
+    ${stageStrip(now, "FDA 승인", "FDA 심사")}
+    <dl>
+      <div class="row"><dt>대상 질환 (원문)</dt><dd class="en">${esc(t.conditions.join(", "))}</dd></div>
+      <div class="row"><dt>3상 시험</dt><dd>${t.trial_count}건${doneTxt ? `, ${t.stage === "phase3_active" ? "예정 종료" : "마지막 종료"} ${esc(doneTxt)}` : ""}</dd></div>
+      ${newsRow("FDA 허가 신청 보도", t.news_us_review)}
+    </dl>
+    <div class="kr-line ${t.kr_status === "none" ? "none" : ""}">${krLine}</div>
+    ${first.id ? `<a class="link" href="https://clinicaltrials.gov/study/${encodeURIComponent(first.id)}" target="_blank" rel="noopener">임상시험 정보 보기</a>` : ""}
+  </article>`;
+}
+
+function krTrialCard(t){
+  const first = (t.trials || [])[0] || {};
+  return `<article class="card">
+    <div class="card-top">
+      <div><div class="name">${esc(t.name)}</div><div class="sub">${esc(t.sponsors.map(company).join(", "))}</div></div>
+      <span class="cat">${esc(t.categories.join(", "))}</span>
+    </div>
+    <div class="badges"><span class="badge trial">국내 임상 3상</span>${t.latest ? recentBadge(t.latest) : ""}</div>
+    ${stageStrip(0, "국내 허가", "심사")}
+    <dl>
+      ${t.ingr && t.ingr !== t.name ? `<div class="row"><dt>성분</dt><dd>${esc(t.ingr)}</dd></div>` : ""}
+      ${first.disease ? `<div class="row"><dt>대상 질환</dt><dd>${esc(first.disease)}</dd></div>` : ""}
+      ${first.title ? `<div class="row"><dt>시험 제목</dt><dd>${foldText(first.title, 80)}</dd></div>` : ""}
+      <div class="row"><dt>3상 시험</dt><dd>${t.trial_count}건${t.latest ? `, 최근 승인 ${fmt(t.latest)}` : ""}</dd></div>
+    </dl>
+  </article>`;
+}
+
+function euCard(e){
+  const now = e.stage === "approved" ? 3 : 2;
+  const kr = { none: ["none", "국내: <b>허가 없음</b>"], parts: ["", "국내: 각 성분은 있지만 <b>이 조합은 허가 없음</b>"],
+    same: ["", `국내: 같은 성분은 허가돼 있어요 (첫 허가 ${fmt(e.kr_first)})`], unknown: ["", "국내: 확인하지 못했어요"] }[e.kr_status || "unknown"];
+  return `<article class="card">
+    <div class="card-top">
+      <div><div class="name">${esc(e.name)}</div><div class="sub">${esc(e.holder)}, ${fmt(e.date)} ${e.stage === "approved" ? "EU 승인" : "CHMP 긍정 의견"}</div></div>
+      <span class="cat">${esc(e.categories.join(", "))}</span>
+    </div>
+    <div class="badges"><span class="badge eu">${e.stage === "approved" ? "EU 승인" : "EU 승인 권고"}</span>${e.biosimilar ? '<span class="badge gen">바이오시밀러</span>' : ""}${recentBadge(e.date)}</div>
+    ${stageStrip(now, "EU 승인", "긍정 의견")}
+    <dl>
+      <div class="row"><dt>성분</dt><dd>${esc(e.inn)}</dd></div>
+      ${e.indication ? `<div class="row"><dt>적응증 (EMA 원문)</dt><dd>${foldText(e.indication, 200, "en")}</dd></div>` : ""}
+    </dl>
+    <div class="kr-line">${e.us_approved === null ? "미국: 백신은 FDA 승인 여부를 자동으로 확인하지 못해요" : "미국: <b>FDA 승인 없음</b>"}</div>
+    <div class="kr-line ${kr[0]}">${kr[1]}</div>
+    ${e.url ? `<a class="link" href="${esc(e.url)}" target="_blank" rel="noopener">EMA 정보 보기</a>` : ""}
+  </article>`;
+}
+
+function section(title, desc, html){
+  return `<section class="sec"><h2>${title}</h2><p class="sec-desc">${desc}</p>${html}</section>`;
+}
+
+function renderList(){
+  const list = document.getElementById("list");
+  let html = "";
+  if (region === "kr"){
+    const news = D.kr.new.filter(inCat);
+    const gens = D.kr.first_generic.filter(inCat);
+    const trend = D.kr.generic_trend.filter(t => t.companies >= 2).filter(inCat);
+    if (news.length) html += section("신약·새 적응증", "국내에 처음 나온 약이나, 처음 붙은 적응증이에요.", news.map(krNewCard).join(""));
+    if (gens.length) html += section("첫 제네릭", "오리지널만 있던 성분에 다른 회사가 처음 들어왔어요.", gens.map(krGenCard).join(""));
+    const krt = (D.kr.trials || []).filter(inCat);
+    if (krt.length) html += section("국내 임상 3상", "최근 2년 안에 식약처가 승인한 3상 임상시험이에요.", krt.map(krTrialCard).join(""));
+    if (trend.length) html += section("복제약이 몰리는 성분", "최근 1년 동안 여러 회사가 허가받은 성분이에요.",
+      trend.map(t => `<div class="trend"><div>${esc(t.ingredient)} <small>(${esc(t.categories.join(", "))})</small></div><span>${t.companies}개 회사, 최근 ${fmt(t.latest)}</span></div>`).join(""));
+  } else if (region === "etc"){
+    const eu = (D.eu || []).filter(inCat);
+    if (eu.length) html += section("유럽 먼저", "유럽에서 승인됐거나 승인 권고를 받았지만, 미국에서는 아직 승인되지 않은 약이에요.", eu.map(euCard).join(""));
+  } else if (region === "us"){
+    const us = D.us.filter(inCat);
+    const tr = D.us_trials.filter(inCat);
+    if (us.length) html += section("FDA 승인", "최근 1년 안에 미국에서 승인된 약이에요.", us.map(usCard).join(""));
+    if (tr.length) html += section("임상 3상", "미국에서 임상 3상 중이거나 최근 2년 안에 3상을 마친, 아직 승인 전인 약이에요.", tr.map(trialCard).join(""));
+  }
+  if (!html){
+    html = `<div class="empty">${region === "etc"
+      ? "현재 조회되는 정보가 없어요. 조회되면 여기에 표시할게요."
+      : "이 분야는 최근 1년 동안 새로 올라온 약이 없어요. 다른 분야를 골라 보세요."}</div>`;
+  }
+  list.innerHTML = html;
+}
+
+function render(){ renderTabs(); renderFilters(); renderList(); }
+
+if (!D){
+  document.getElementById("list").innerHTML = '<div class="empty">데이터 파일(data/radar-data.js)이 없어요. 먼저 node collect.mjs를 실행해 주세요.</div>';
+} else {
+  if (Array.isArray(D.categories)) CATS = ["전체", ...D.categories];
+  D.us_trials = D.us_trials || [];
+  const g = new Date(D.generated_at);
+  document.getElementById("updated").textContent = `${g.getFullYear()}.${String(g.getMonth()+1).padStart(2,"0")}.${String(g.getDate()).padStart(2,"0")} 업데이트`;
+  render();
+}
+</script>
+</body>
+</html>
