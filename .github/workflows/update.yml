@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
@@ -25,8 +25,8 @@ jobs:
         with:
           node-version: 22
 
-      # 한 번 받은 식약처 상세 정보를 다음 주에도 다시 쓰도록 보관해요
-      - uses: actions/cache@v4
+      # 지난번에 받아 둔 식약처 상세 정보를 꺼내요
+      - uses: actions/cache/restore@v4
         with:
           path: data/kr-detail-cache.json
           key: kr-detail-${{ github.run_id }}
@@ -38,6 +38,13 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: node collect.mjs
+
+      # 중간에 멈춰도 그때까지 받은 상세 정보는 다음 실행을 위해 보관해요
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('data/kr-detail-cache.json') != ''
+        with:
+          path: data/kr-detail-cache.json
+          key: kr-detail-${{ github.run_id }}
 
       - name: 사이트 파일 모으기
         run: |
