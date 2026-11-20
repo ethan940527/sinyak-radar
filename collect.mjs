@@ -18,7 +18,7 @@ const cachePath = path.join(dataDir, "kr-detail-cache.json");
 const DAYS = Number(process.argv[2]) > 0 ? Number(process.argv[2]) : 365;
 const MFDS = "https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08";
 const ROWS = 100;
-const CONCURRENCY = 3;
+const CONCURRENCY = 6;
 const CACHE_V = 2;
 
 // ---------- 공통 도구 ----------
@@ -26,6 +26,8 @@ const log = (t = "") => console.log(t);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, "");
 const today = new Date();
+const startedAt = Date.now();
+const elapsed = () => `${Math.round((Date.now() - startedAt) / 60000)}분 경과`;
 const since = ymd(new Date(today.getTime() - DAYS * 86400000));
 const until = ymd(today);
 
@@ -40,7 +42,7 @@ async function fetchJson(url, label, tries = 4) {
   let lastErr = "";
   for (let i = 0; i < tries; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
       const text = await res.text();
       let json;
       try { json = JSON.parse(text); } catch { lastErr = `JSON 아님: ${text.slice(0, 200)}`; }
@@ -119,7 +121,7 @@ function classifyUs(ind) {
 const krIndex = { combo: {}, single: {} };
 
 async function collectKr(key) {
-  log(`\n==== 식약처: ${since} ~ ${until} 허가 찾기 ====`);
+  log(`\n==== 식약처: ${since} ~ ${until} 허가 찾기 ==== (${elapsed()})`);
   const listUrl = p => `${MFDS}/getDrugPrdtPrmsnInq08?${new URLSearchParams({ serviceKey: key, type: "json", pageNo: String(p), numOfRows: String(ROWS) })}`;
   const first = await fetchJson(listUrl(1), "목록 1페이지");
   const { body, items: firstItems } = pickItems(first);
@@ -159,7 +161,7 @@ async function collectKr(key) {
     const j = await fetchJson(listUrl(p), `목록 ${p}페이지`);
     take(pickItems(j).items);
     done++;
-    if (done % 50 === 0 || done === pages) log(`  목록 ${done}/${pages}페이지 완료, 지금까지 기간 내 허가 ${recent.length}건`);
+    if (done % 50 === 0 || done === pages) log(`  목록 ${done}/${pages}페이지 완료, 지금까지 기간 내 허가 ${recent.length}건 (${elapsed()})`);
   });
 
   // 상세 정보: 한 번 받은 건 캐시에 저장해 다음 실행 때 다시 부르지 않아요
@@ -187,7 +189,10 @@ async function collectKr(key) {
         log(`  상세 실패 ${q}: ${e.message}`);
       }
       d++;
-      if (d % 100 === 0 || d === need.length) log(`  상세 ${d}/${need.length}건 완료`);
+      if (d % 100 === 0 || d === need.length) {
+        log(`  상세 ${d}/${need.length}건 완료 (${elapsed()})`);
+        await writeFile(cachePath, JSON.stringify(cache), "utf8");
+      }
     });
     await writeFile(cachePath, JSON.stringify(cache), "utf8");
   }
@@ -323,7 +328,7 @@ function splitKr(all) {
 
 // ---------- 미국 FDA ----------
 async function collectUs() {
-  log(`\n==== 미국 FDA: ${since} ~ ${until} 최초 승인 찾기 ====`);
+  log(`\n==== 미국 FDA: ${since} ~ ${until} 최초 승인 찾기 ==== (${elapsed()})`);
   const search = `submissions.submission_type:"ORIG" AND submissions.submission_status:"AP" AND submissions.submission_status_date:[${since} TO ${until}]`;
   const results = [];
   for (let skip = 0; ; skip += 1000) {
@@ -440,7 +445,7 @@ async function ctSearch(term) {
 }
 
 async function collectTrials(approvedBases = new Set()) {
-  log(`\n==== 임상 3상 (ClinicalTrials.gov) ====`);
+  log(`\n==== 임상 3상 (ClinicalTrials.gov) ==== (${elapsed()})`);
   const twoYearsAgo = new Date(today.getTime() - 730 * 86400000).toISOString().slice(0, 10);
   const drugs = {};
   for (const [cat, terms] of Object.entries(CT_TERMS)) {
@@ -565,8 +570,8 @@ function krStatusOf(bases) {
 
 // ---------- 유럽 EMA ----------
 async function collectEu() {
-  log(`\n==== 유럽 EMA: ${since} ~ ${until} 승인·긍정 의견 찾기 ====`);
-  const res = await fetch("https://www.ema.europa.eu/en/media/67423");
+  log(`\n==== 유럽 EMA: ${since} ~ ${until} 승인·긍정 의견 찾기 ==== (${elapsed()})`);
+  const res = await fetch("https://www.ema.europa.eu/en/media/67423", { signal: AbortSignal.timeout(120000) });
   const text = await res.text();
   let j;
   try { j = JSON.parse(text); } catch { throw new Error(`EMA 응답이 JSON이 아니에요 (${res.status}): ${text.slice(0, 120)}`); }
@@ -612,7 +617,7 @@ async function collectEu() {
 
 // ---------- 국내 임상 3상 (식약처 임상시험 계획) ----------
 async function collectKrTrials(key) {
-  log(`\n==== 국내 임상 3상 (식약처) ====`);
+  log(`\n==== 국내 임상 3상 (식약처) ==== (${elapsed()})`);
   const base = "https://apis.data.go.kr/1471000/ClncExamPlanDtlService03";
   const from = new Date(today.getTime() - 730 * 86400000).toISOString().slice(0, 10);
   let op = "", rows = [], total = 0, firstItem = null;
@@ -621,7 +626,7 @@ async function collectKrTrials(key) {
       const p = { serviceKey: key, type: "json", pageNo: "1", numOfRows: "100" };
       if (withDate) Object.assign(p, { clst_aprv_start_dt: `${from} 00:00:00`, clst_aprv_end_dt: `${until.slice(0,4)}-${until.slice(4,6)}-${until.slice(6,8)} 23:59:59` });
       try {
-        const res = await fetch(`${base}/${cand}?${new URLSearchParams(p)}`);
+        const res = await fetch(`${base}/${cand}?${new URLSearchParams(p)}`, { signal: AbortSignal.timeout(30000) });
         const text = await res.text();
         let j = null; try { j = JSON.parse(text); } catch {}
         const { body, items } = j ? pickItems(j) : { body: null, items: [] };
@@ -691,7 +696,7 @@ async function naverNews(idSecret, q) {
   let last = "";
   for (const tpl of tries) {
     const url = `${NAVER_BASE}${tpl.replace("{kind}", "news")}?${new URLSearchParams({ query: q, display: "30", sort: "date" })}`;
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
     if (res.ok) {
       naverPath = tpl;
       const j = await res.json();
@@ -712,7 +717,7 @@ function krToken(name) {
     .replace(/(오토인젝터주|프리필드시린지주|프리필드펜주|주사액|점안액|점안제|주|정|캡슐|액|산|겔|크림|연고|패치)$/, "").trim();
 }
 async function addNews(idSecret, krNew, usHit, trials) {
-  log(`\n==== 뉴스 (보도 기준 심사·출시) ====`);
+  log(`\n==== 뉴스 (보도 기준 심사·출시) ==== (${elapsed()})`);
   let n = 0;
   for (const x of krNew) {
     const tok = krToken(x.name);
