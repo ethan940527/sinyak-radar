@@ -46,6 +46,12 @@ jobs:
           path: data/kr-detail-cache.json
           key: kr-detail-${{ github.run_id }}
 
+      # 화면만 바꿀 때 다시 쓰도록 이번 데이터를 보관해요
+      - uses: actions/cache/save@v4
+        with:
+          path: data/radar-data.js
+          key: radar-data-${{ github.run_id }}
+
       - name: 사이트 파일 모으기
         run: |
           mkdir -p _site/data
